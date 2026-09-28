@@ -10,7 +10,31 @@ export class DownloadManager {
     private queue = new ObservableArray<DownloadTask, DownloadManager>([], this);
     private queueTransactionLock = false;
 
-    constructor(private readonly storageController: StorageController) {}
+    /**
+     * The number of chapters/episodes that are processed at the same time when no other limit is provided.
+     */
+    public static readonly DefaultConcurrency = 6;
+
+    private readonly running = new Set<DownloadTask>();
+
+    /**
+     * @param storageController - The storage used by the download tasks for temporary resources
+     * @param concurrency - A function that provides the maximum number of tasks which may run at the same time.
+     *                      It is evaluated repeatedly, so changes (e.g. from the settings) apply to any not yet started task.
+     */
+    constructor(private readonly storageController: StorageController, private readonly concurrency: () => number = () => DownloadManager.DefaultConcurrency) {}
+
+    /**
+     * The (sanitized) maximum number of tasks that may run at the same time, always at least 1.
+     */
+    private get MaxConcurrency(): number {
+        try {
+            const value = Math.floor(this.concurrency());
+            return Number.isFinite(value) && value > 0 ? value : DownloadManager.DefaultConcurrency;
+        } catch {
+            return DownloadManager.DefaultConcurrency;
+        }
+    }
 
     public get Queue(): IObservable<DownloadTask[], DownloadManager> {
         return this.queue;
@@ -68,9 +92,13 @@ export class DownloadManager {
 
         while(this) {
             try {
-                const task = await this.InvokeQueueTransaction(() => this.queue.Value.find(task => task.Status.Value === Status.Queued));
+                if(this.running.size >= this.MaxConcurrency) {
+                    await new Promise<void>(resolve => SetTimeout(resolve, 250));
+                    continue;
+                }
+                const task = await this.InvokeQueueTransaction(() => this.queue.Value.find(task => task.Status.Value === Status.Queued && !this.running.has(task)));
                 if(task) {
-                    await task.Run();
+                    this.Launch(task);
                 } else {
                     await new Promise<void>(resolve => SetTimeout(resolve, 750));
                 }
@@ -78,5 +106,15 @@ export class DownloadManager {
         }
 
         this.processing = false;
+    }
+
+    /**
+     * Start the given {@link task} without waiting for it, so the next one can be started immediately (up to the concurrency limit).
+     */
+    private Launch(task: DownloadTask) {
+        this.running.add(task);
+        task.Run()
+            .catch(() => { /* IGNORE: errors are tracked by the task itself */ })
+            .finally(() => this.running.delete(task));
     }
 }
