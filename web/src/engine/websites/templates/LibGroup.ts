@@ -1,7 +1,7 @@
 import { Chapter, DecoratableMangaScraper, Manga, type MangaPlugin, Page } from '../../providers/MangaPlugin';
 import * as Grouple from '../decorators/Grouple';
 import { FetchJSON, FetchWindowScript } from '../../platform/FetchProvider';
-import { Delay } from '../../BackgroundTimers';
+import { ThrottleDelay } from '../../taskpool/RateLimit';
 import type { MirroredPage } from '../decorators/Grouple';
 
 type APIResult<T> = {
@@ -160,7 +160,7 @@ export class LibGroup extends DecoratableMangaScraper {
     public override async FetchMangas(provider: MangaPlugin): Promise<Manga[]> {
         const mangaList: Manga[] = [];
         for (let page = 1, run = true; run; page++) {
-            await Delay(500);
+            await ThrottleDelay(500);
             const { data, meta: { has_next_page } } = await this.FetchAPI<APIMangas>(`./manga?page=${page}&site_id[]=${this.siteID}`);
             mangaList.push(...data.map(({ name, rus_name: rusName, slug_url: slug }) => new Manga(this, provider, slug, rusName || name)));
             run = has_next_page;
