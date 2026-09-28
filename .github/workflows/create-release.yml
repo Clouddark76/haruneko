@@ -22,7 +22,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.0.0
-          cache: npm
 
       - name: Install NPM Packages
         run: npm run npm:clean-install
@@ -35,11 +34,11 @@ jobs:
 
           $content = Get-Content $file -Raw
 
-          # Remove the Electron ARM64 build.
+          # Remove Electron ARM64 build
           $content = $content -replace `
             "(?ms)\s*dirTemp = await redist\(electronVersion, process\.platform, 'arm64'\);\s*await portable\.bundle\(dirApp, dirRes, dirTemp, dirOut\);", ""
 
-          # Remove commented ARM64 setup lines as well.
+          # Remove commented ARM64 setup lines
           $content = $content -replace `
             "(?ms)\s*//dirTemp = await redist\(electronVersion, process\.platform, 'arm64'\);\s*//await setup\.bundle\(dirApp, dirTemp\);", ""
 
@@ -72,7 +71,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.0.0
-          cache: npm
 
       - name: Install NPM Packages
         run: npm run npm:clean-install
