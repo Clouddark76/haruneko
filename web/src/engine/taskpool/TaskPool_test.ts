@@ -46,6 +46,24 @@ describe('TaskPool', () => {
             testee.Workers = expected;
             expect(testee.Workers).toBe(expected);
         });
+
+        it('Should default to 4 workers', async () => {
+            const testee = new TaskPool();
+            expect(testee.Workers).toBe(4);
+        });
+
+        it('Should evaluate a provider function on every access', async () => {
+            let value = 2;
+            const testee = new TaskPool(() => value, Unlimited);
+            expect(testee.Workers).toBe(2);
+            value = 9;
+            expect(testee.Workers).toBe(9);
+        });
+
+        it.each([ 0, -3, Number.NaN, Number.POSITIVE_INFINITY ])('Should fall back to 4 for invalid value %s', async (invalid) => {
+            const testee = new TaskPool(() => invalid, Unlimited);
+            expect(testee.Workers).toBe(4);
+        });
     });
 
     describe('RateLimit', () => {
