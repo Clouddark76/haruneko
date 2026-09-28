@@ -17,9 +17,29 @@ class TestFixture {
     public readonly StorageControllerMock = {} as StorageController;
     public readonly SettingsManagerMock = {} as SettingsManager;
 
-    public CreateTestee() {
-        return new DownloadManager(this.StorageControllerMock);
+    public CreateTestee(concurrency?: () => number) {
+        return new DownloadManager(this.StorageControllerMock, concurrency);
     }
+}
+
+/**
+ * Create a container that stays in the 'downloading' state until it is released, and records how many were active at the same time.
+ */
+function MockBlockingContainer(identifier: string, probe: { active: number, peak: number }) {
+    let release: () => void;
+    const gate = new Promise<void>(resolve => release = resolve);
+    const container = MockContainer(identifier) as unknown as Record<string, unknown>;
+    Object.defineProperty(container, 'Entries', { get: () => ({ Value: [] }) });
+    Object.defineProperty(container, 'Update', {
+        value: async () => {
+            probe.active++;
+            probe.peak = Math.max(probe.peak, probe.active);
+            await gate;
+            probe.active--;
+            // NOTE: Empty media entries make the task fail right after, which is irrelevant for measuring concurrency
+        }
+    });
+    return { container: container as unknown as StoreableMediaContainer<MediaItem>, release };
 }
 
 describe('DownloadManager', () => {
@@ -190,6 +210,71 @@ describe('DownloadManager', () => {
 
             expect(callback).toHaveBeenCalledTimes(1);
             expect(callback).toHaveBeenCalledWith(testee.Queue.Value, testee);
+        });
+    });
+
+    describe('Concurrency', () => {
+
+        const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+        it('Should have a default of 6 simultaneous tasks', async () => {
+            expect(DownloadManager.DefaultConcurrency).toBe(6);
+        });
+
+        it('Should process multiple tasks at the same time up to the limit', async () => {
+            const fixture = new TestFixture();
+            const testee = fixture.CreateTestee(() => 3);
+            const probe = { active: 0, peak: 0 };
+            const items = [ '①', '②', '③', '④', '⑤' ].map(id => MockBlockingContainer(id, probe));
+
+            await testee.Enqueue(...items.map(item => item.container));
+            await wait(400);
+
+            expect(probe.peak).toBe(3);
+            items.forEach(item => item.release());
+        });
+
+        it('Should process tasks one after another with a limit of 1', async () => {
+            const fixture = new TestFixture();
+            const testee = fixture.CreateTestee(() => 1);
+            const probe = { active: 0, peak: 0 };
+            const items = [ '①', '②', '③' ].map(id => MockBlockingContainer(id, probe));
+
+            await testee.Enqueue(...items.map(item => item.container));
+            await wait(400);
+
+            expect(probe.peak).toBe(1);
+            items.forEach(item => item.release());
+        });
+
+        it('Should start further tasks when a running task has finished', async () => {
+            const fixture = new TestFixture();
+            const testee = fixture.CreateTestee(() => 2);
+            const probe = { active: 0, peak: 0 };
+            const items = [ '①', '②', '③' ].map(id => MockBlockingContainer(id, probe));
+
+            await testee.Enqueue(...items.map(item => item.container));
+            await wait(400);
+            expect(probe.active).toBe(2);
+
+            items[0].release();
+            await wait(500);
+            expect(probe.active).toBe(2);
+
+            items.forEach(item => item.release());
+        });
+
+        it('Should fall back to the default for invalid limits', async () => {
+            const fixture = new TestFixture();
+            const testee = fixture.CreateTestee(() => Number.NaN);
+            const probe = { active: 0, peak: 0 };
+            const items = Array.from({ length: 9 }, (_, index) => MockBlockingContainer(`#${index}`, probe));
+
+            await testee.Enqueue(...items.map(item => item.container));
+            await wait(600);
+
+            expect(probe.peak).toBe(DownloadManager.DefaultConcurrency);
+            items.forEach(item => item.release());
         });
     });
 });
