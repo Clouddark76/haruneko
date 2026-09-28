@@ -1,6 +1,6 @@
 // https://mangabooth.com/product/wp-manga-theme-madara/
 
-import { Delay } from '../../BackgroundTimers';
+import { ThrottleDelay } from '../../taskpool/RateLimit';
 import { WebsiteResourceKey as R } from '../../../i18n/ILocale';
 import { Exception } from '../../Error';
 import { FetchCSS, FetchHTML } from '../../platform/FetchProvider';
@@ -191,7 +191,7 @@ export async function FetchMangasMultiPageAJAX(this: MangaScraper, provider: Man
             return new Manga(this, provider, id, title.trim());
         });
         mangas.length > 0 ? mangaList.push(...mangas) : run = false;
-        await Delay(throttle);
+        await ThrottleDelay(throttle);
     }
     return mangaList;
 }
@@ -363,7 +363,7 @@ async function FetchChaptersMultiPageAJAX(this: MangaScraper, manga: Manga, quer
         });
         const chapters: Chapter[] = await FetchChaptersCSS.call(this, manga, request, query, extract);
         chapters.length > 0 && chapterList.isMissingLastItemFrom(chapters) ? chapterList.push(...chapters) : run = false;
-        await Delay(throttle);
+        await ThrottleDelay(throttle);
     }
     return chapterList;
 }
