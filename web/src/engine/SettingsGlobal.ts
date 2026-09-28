@@ -14,6 +14,9 @@ export const enum Key {
     MangaExportFormat = 'manga-export-format',
     DescramblingFormat = 'descrambling-format',
     DescramblingQuality = 'descrambling-quality',
+    ConcurrentChapters = 'concurrent-chapters',
+    ConcurrentImages = 'concurrent-images',
+    IgnoreRateLimits = 'ignore-rate-limits',
     UserAgent = 'UserAgent',
     CaptchaToken = 'captcha-token',
     PostCommand = 'post-command',
@@ -82,6 +85,24 @@ export async function Initialize(settingsManager: SettingsManager, frontends: IF
             R.Settings_Global_DescramblingQuality,
             R.Settings_Global_DescramblingQualityInfo,
             95, 25, 100
+        ),
+        new Numeric(
+            Key.ConcurrentChapters,
+            R.Settings_Global_ConcurrentChapters,
+            R.Settings_Global_ConcurrentChaptersInfo,
+            6, 1, 32
+        ),
+        new Numeric(
+            Key.ConcurrentImages,
+            R.Settings_Global_ConcurrentImages,
+            R.Settings_Global_ConcurrentImagesInfo,
+            4, 1, 32
+        ),
+        new Check(
+            Key.IgnoreRateLimits,
+            R.Settings_Global_IgnoreRateLimits,
+            R.Settings_Global_IgnoreRateLimitsInfo,
+            false
         ),
         new Text(
             Key.UserAgent,
