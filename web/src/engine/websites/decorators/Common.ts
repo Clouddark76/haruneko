@@ -5,7 +5,7 @@ import { type MangaScraper, type DecoratableMangaScraper, type MangaPlugin, Mang
 import type { MediaChild, MediaContainer } from '../../providers/MediaPlugin';
 import type { Priority } from '../../taskpool/TaskPool';
 import DeProxify from '../../transformers/ImageLinkDeProxifier';
-import { Delay } from '../../BackgroundTimers';
+import { ThrottleDelay } from '../../taskpool/RateLimit';
 
 export function ThrowOnUnsupportedDecoratorContext(context: ClassDecoratorContext) {
     if (context && context.kind !== 'class') {
@@ -300,7 +300,7 @@ export async function FetchMangasMultiPageCSS<E extends HTMLElement>(this: Manga
     let reducer = Promise.resolve();
     for (const uri of generate.call(this, provider)) {
         await reducer;
-        reducer = throttle > 0 ? Delay(throttle) : Promise.resolve();
+        reducer = throttle > 0 ? ThrottleDelay(throttle) : Promise.resolve();
         const mangas = await FetchMangasSinglePageCSS.call(this, provider, uri.href, query, extract);
         if (generate.isExhaustive || mangaList.isMissingLastItemFrom(mangas)) {
             mangaList.push(...mangas); // TODO: Broadcast event that mangalist for provider has been updated?
@@ -399,7 +399,7 @@ export async function FetchChaptersMultiPageCSS<E extends HTMLElement>(this: Man
     let reducer = Promise.resolve();
     for (const uri of generate.call(this, manga)) {
         await reducer;
-        reducer = throttle > 0 ? Delay(throttle) : Promise.resolve();
+        reducer = throttle > 0 ? ThrottleDelay(throttle) : Promise.resolve();
         const chapters = await FetchChaptersSinglePageCSS.call(this, manga, query, () => uri, extract as InfoExtractor<HTMLElement>);
         if (generate.isExhaustive || chapterList.isMissingLastItemFrom(chapters)) {
             chapterList.push(...chapters); // TODO: Broadcast event that chapterlist for manga has been updated?
