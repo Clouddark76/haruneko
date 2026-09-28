@@ -1,5 +1,5 @@
 import { Key, Scope } from '../SettingsGlobal';
-import type { Check, Choice, Directory, ISettings, SettingsManager } from '../SettingsManager';
+import type { Check, Choice, Directory, ISettings, Numeric, SettingsManager } from '../SettingsManager';
 import { SanitizeFileName, type StorageController, Store } from '../StorageController';
 import { type Priority, TaskPool } from '../taskpool/TaskPool';
 import { MediaContainer, StoreableMediaContainer, MediaItem, MediaScraper } from './MediaPlugin';
@@ -18,7 +18,11 @@ const settingsKeyPrefix = 'plugin.';
  */
 export abstract class MangaScraper extends MediaScraper<MangaPlugin> {
 
-    protected readonly imageTaskPool = new TaskPool();
+    /**
+     * The number of images that are downloaded at the same time for this website (follows the global setting, falls back to 4).
+     * Only the concurrency is adjusted, any website specific `RateLimit` remains untouched.
+     */
+    protected readonly imageTaskPool = new TaskPool(() => globalThis.HakuNeko?.SettingsManager?.OpenScope(Scope)?.Get<Numeric>(Key.ConcurrentImages)?.Value ?? 4);
 
     public CreatePlugin(storageController: StorageController, settingsManager: SettingsManager): MangaPlugin {
         return new MangaPlugin(storageController, settingsManager, this);
