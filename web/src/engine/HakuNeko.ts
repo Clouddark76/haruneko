@@ -5,9 +5,10 @@ import { BookmarkPlugin } from './providers/BookmarkPlugin';
 import { ItemflagManager } from './ItemflagManager';
 import { CreateStorageController, type StorageController } from './StorageController';
 import { InteractiveFileContentProvider } from './InteractiveFileContentProvider';
-import { SettingsManager, type Check } from './SettingsManager';
+import { SettingsManager, type Check, type Numeric } from './SettingsManager';
 import { FeatureFlags } from './FeatureFlags';
 import { DownloadManager } from './DownloadManager';
+import { RateLimit } from './taskpool/RateLimit';
 import { CreateBloatGuard } from './platform/BloatGuard';
 import { SetupFetchProvider } from './platform/FetchProvider';
 import { CreateRemoteProcedureCallManager } from './platform/RemoteProcedureCallManager';
@@ -33,7 +34,8 @@ export class HakuNeko {
         this.#pluginController = new PluginController(this.#storageController, this.#settingsManager);
         this.#bookmarkPlugin = new BookmarkPlugin(this.#storageController, this.#pluginController, new InteractiveFileContentProvider());
         this.#itemflagManager = new ItemflagManager(this.#storageController);
-        this.#downloadManager = new DownloadManager(this.#storageController);
+        this.#downloadManager = new DownloadManager(this.#storageController, () => this.#settingsManager.OpenScope().Get<Numeric>(GlobalKey.ConcurrentChapters)?.Value);
+        RateLimit.SetBypass(() => this.#settingsManager.OpenScope().Get<Check>(GlobalKey.IgnoreRateLimits)?.Value === true);
         SetupFetchProvider(this.#featureFlags);
     }
 
