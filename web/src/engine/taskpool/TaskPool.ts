@@ -1,7 +1,7 @@
 import { Delay } from '../BackgroundTimers';
 import { DeferredTask, type Priority } from './DeferredTask';
 export { Priority } from './DeferredTask';
-import { Unlimited } from './RateLimit';
+import { RateLimit, Unlimited } from './RateLimit';
 
 export class TaskPool {
 
@@ -16,7 +16,24 @@ export class TaskPool {
      * @param Workers - The number of workers for processing tasks (maximum number of tasks processed at the same time). Default: 4
      * @param RateLimit - The maximum throughput for processing tasks. Default: infinite
      */
-    constructor(public Workers: number = 4, public RateLimit = Unlimited) {}
+    constructor(workers: number | (() => number) = 4, public RateLimit = Unlimited) {
+        this.workers = workers;
+    }
+
+    private workers: number | (() => number);
+
+    /**
+     * The maximum number of tasks processed at the same time.
+     * Can be assigned with a fixed number, or with a function that is re-evaluated whenever a slot is requested (e.g., to follow a setting).
+     */
+    public get Workers(): number {
+        const value = Math.floor(typeof this.workers === 'function' ? this.workers() : this.workers);
+        return Number.isFinite(value) && value > 0 ? value : 4;
+    }
+
+    public set Workers(value: number | (() => number)) {
+        this.workers = value;
+    }
 
     /**
      * Add a new (awaitable) {@link action} to this task pool and start processing the task pool (if not already started).
@@ -68,6 +85,11 @@ export class TaskPool {
     }
 
     private async Throttle() {
+        if(RateLimit.Bypassed) {
+            // NOTE: Also discard a delay that is still pending from before the bypass was enabled
+            this.delay = Promise.resolve();
+            return;
+        }
         await this.delay;
         this.delay = Delay(this.RateLimit.Throttle);
     }
