@@ -1,6 +1,6 @@
 import { Tags } from '../Tags';
 import icon from './AllManga.webp';
-import { Delay } from '../BackgroundTimers';
+import { ThrottleDelay } from '../taskpool/RateLimit';
 import { FetchGraphQL, FetchWindowScript } from '../platform/FetchProvider';
 import { DecoratableMangaScraper, type MangaPlugin, Manga, Chapter, Page } from '../providers/MangaPlugin';
 import * as Common from './decorators/Common';
@@ -74,7 +74,7 @@ export default class extends DecoratableMangaScraper {
         // TODO: Use Array.fromAsync
         const mangaList: Manga[] = [];
         for (let page = 1, run = true; run; page++) {
-            await Delay(1000);
+            await ThrottleDelay(1000);
             const { mangas: { edges } } = await FetchGraphQL<APIMangas>(new Request(this.apiURL), '', `
             query ($page: Int) {
                 mangas(page: $page, format: ALL, countryOrigin: ALL, search: { allowAdult: true }) {
